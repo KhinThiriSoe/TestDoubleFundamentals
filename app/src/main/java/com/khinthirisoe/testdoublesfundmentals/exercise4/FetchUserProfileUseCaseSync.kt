@@ -14,26 +14,21 @@ class FetchUserProfileUseCaseSync(
     }
 
     fun fetchUserProfileSync(userId: String?): UseCaseResult {
-        val endpointResult: UserProfileHttpEndpointSync.EndpointResult
+        val endpointResult: UserProfileHttpEndpointSync.EndpointResult?
         try {
-            // the bug here is that userId is not passed to endpoint
-            endpointResult = mUserProfileHttpEndpointSync.getUserProfile("")
-            // the bug here is that I don't check for successful result and it's also a duplication
-            // of the call later in this method
-            mUsersCache.cacheUser(
-                User(userId, endpointResult.fullName, endpointResult.imageUrl)
-            )
+            endpointResult = mUserProfileHttpEndpointSync.getUserProfile(userId)
         } catch (e: NetworkErrorException) {
             return UseCaseResult.NETWORK_ERROR
         }
-        if (isSuccessfulEndpointResult(endpointResult)) {
-            mUsersCache.cacheUser(
-                User(userId, endpointResult.fullName, endpointResult.imageUrl)
-            )
-        }
 
-        // the bug here is that I return wrong result in case of an unsuccessful server response
-        return UseCaseResult.SUCCESS
+        return if (isSuccessfulEndpointResult(endpointResult!!)) {
+            mUsersCache.cacheUser(
+                userId?.let { User(it, endpointResult.fullName, endpointResult.imageUrl) }
+            )
+            UseCaseResult.SUCCESS
+        } else {
+            UseCaseResult.FAILURE
+        }
     }
 
     private fun isSuccessfulEndpointResult(endpointResult: UserProfileHttpEndpointSync.EndpointResult): Boolean {
